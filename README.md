@@ -1,2 +1,2 @@
 # Fusion pertinent
-Fusion Scripts, Plug-ins, Presets, etc.
+Fusion Scripts, Plugins, Presets, etc.
