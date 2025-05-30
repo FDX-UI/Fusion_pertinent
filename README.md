@@ -1,2 +1,2 @@
-# Fusion_pertinent
+# Fusion pertinent
 Fusion Scripts, Plug-ins, Presets, etc.
