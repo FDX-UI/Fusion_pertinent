@@ -121,7 +121,7 @@ function Process(req)
       params.iTime=req.Time/framerate
       node:SetParamBlock(params)
   end
-  node:AddSampler("RowSampler",TEX_FILTER_MODE_LINEAR,TEX_ADDRESS_MODE_BORDER,TEX_NORMALIZED_COORDS_TRUE) --过滤方法
+  node:AddSampler("RowSampler",TEX_FILTER_MODE_LINEAR,TEX_ADDRESS_MODE_BORDER,TEX_NORMALIZED_COORDS_TRUE)
   node:AddInput("src",img)
   node:AddOutput("dst",out)
   local success=node:RunSession(req)
