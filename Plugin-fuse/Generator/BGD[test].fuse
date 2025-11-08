@@ -1,0 +1,133 @@
+FuRegisterClass("BGD",CT_SourceTool,{
+  REGS_Category          ="Fuses",
+  REGS_OpIconString      ="BGD",
+  REGS_OpDescription     ="BGD",
+  REG_Source_GlobalCtrls =true,
+  REG_Source_SizeCtrls   =true,
+  REG_Source_AspectCtrls =true,
+  REG_Source_DepthCtrls  =true,
+  REG_TimeVariant        =true,
+})
+
+SeascapeParams=[[
+    float R;
+    float G;
+    float B;
+    float A;
+    float iTime;
+]]
+
+SeascapeKernel=[[
+__KERNEL__ void mainImage(__CONSTANTREF__ SeascapeParams*params,__TEXTURE2D__ src,__TEXTURE2D_WRITE__ dst){
+  DEFINE_KERNEL_ITERATORS_XY(x,y);
+  float2 iResolution=to_float2(1920,1080);
+  float2 fragCoord=to_float2(x,y);
+  float2 uv=fragCoord/iResolution;
+  float3 col;
+
+  col.r=1.0f*_cosf(params->iTime+3+uv.x+0);
+  col.g=1.0f*_cosf(params->iTime+3+uv.y+2);
+  col.b=1.0f*_cosf(params->iTime+3+uv.x+4);
+
+  float4 fragColor=to_float4_s(0.0f);
+  fragColor=to_float4(col.x,col.y,col.z,1.0f);
+  //fragColor=to_float4(params->R,params->G,params->B,params->A);
+  _tex2DVec4Write(dst,x,y,fragColor);
+}
+]]
+
+function Create()
+OutImage=self:AddOutput("Output", "Output", {
+  LINKID_DataType ="Image",
+  LINK_Main       =1,
+})
+InR=self:AddInput("Red","Red",{
+  LINKID_DataType    ="Number",
+  INPID_InputControl ="ColorControl",
+  INP_MaxScale       =1,
+  INP_MinScale       =0,
+  INP_Default        =1,
+  ICS_Name           ="Color",
+  IC_ControlGroup    =1,
+  IC_ControlID       =0,
+})
+InG=self:AddInput("Green","Green",{
+  LINKID_DataType    ="Number",
+  INPID_InputControl ="ColorControl",
+  INP_MaxScale       =1,
+  INP_MinScale       =0,
+  INP_Default        =1,
+  IC_ControlGroup    =1,
+  IC_ControlID       =1,
+})
+InB=self:AddInput("Blue","Blue",{
+  LINKID_DataType    ="Number",
+  INPID_InputControl ="ColorControl",
+  INP_MaxScale       =1,
+  INP_MinScale       =0,
+  INP_Default        =1,
+  IC_ControlGroup    =1,
+  IC_ControlID       =2,
+})
+InA=self:AddInput("Alpha","Alpha",{
+  LINKID_DataType    ="Number",
+  INPID_InputControl ="ColorControl",
+  INP_MaxScale       =1,
+  INP_MinScale       =0,
+  INP_Default        =1,
+  IC_ControlGroup    =1,
+  IC_ControlID       =3,
+})
+end
+
+function Process(req)
+  local framerate=self.Comp:GetPrefs("Comp.FrameFormat.Rate")
+  local imgattrs={
+    IMG_Document=self.Comp,
+    {IMG_Channel="Red",},
+    {IMG_Channel="Green",},
+    {IMG_Channel="Blue",},
+    {IMG_Channel="Alpha",},
+    IMG_Width=Width,
+    IMG_Height=Height,
+    IMG_XScale=XAspect,
+    IMG_YScale=YAspect,
+    IMAT_OriginalWidth=realwidth,
+    IMAT_OriginalHeight=realheight,
+    IMG_Quality=not req:IsQuick(),
+    IMG_MotionBlurQuality=not req:IsNoMotionBlur(),
+  }
+  if not req:IsStampOnly() then
+     imgattrs.IMG_ProxyScale=1
+  end
+  local img=Image(imgattrs)
+  local out=Image{IMG_Like=img}
+
+  node=DVIPComputeNode(req,"mainImage",SeascapeKernel,"SeascapeParams",SeascapeParams)
+  if not pcall(function()
+      params=node:GetParamBlock(SeascapeParams)
+      params.R=InR:GetValue(req).Value
+      params.G=InG:GetValue(req).Value
+      params.B=InB:GetValue(req).Value
+      params.A=InA:GetValue(req).Value
+      params.iTime=req.Time/framerate
+      node:SetParamBlock(params)
+  end) then
+      params=node:GetParamBlock(SeascapeParams)
+      params.R=InR:GetValue(req).Value
+      params.G=InG:GetValue(req).Value
+      params.B=InB:GetValue(req).Value
+      params.A=InA:GetValue(req).Value
+      params.iTime=req.Time/framerate
+      node:SetParamBlock(params)
+  end
+  node:AddSampler("RowSampler",TEX_FILTER_MODE_LINEAR,TEX_ADDRESS_MODE_BORDER,TEX_NORMALIZED_COORDS_TRUE)
+  node:AddInput("src",img)
+  node:AddOutput("dst",out)
+  local success=node:RunSession(req)
+  if not success then
+      out=nil
+      dump(node:GetErrorLog())
+  end
+  OutImage:Set(req,out)
+end
