@@ -9,7 +9,7 @@ FuRegisterClass("BGD",CT_SourceTool,{
   REG_TimeVariant        =true,
 })
 
-SeascapeParams=[[
+Params_=[[
     float R;
     float G;
     float B;
@@ -17,7 +17,7 @@ SeascapeParams=[[
     float iTime;
 ]]
 
-SeascapeKernel=[[
+Kernel_=[[
 __KERNEL__ void mainImage(__CONSTANTREF__ SeascapeParams*params,__TEXTURE2D__ src,__TEXTURE2D_WRITE__ dst){
   DEFINE_KERNEL_ITERATORS_XY(x,y);
   float2 iResolution=to_float2(1920,1080);
@@ -103,9 +103,9 @@ function Process(req)
   local img=Image(imgattrs)
   local out=Image{IMG_Like=img}
 
-  node=DVIPComputeNode(req,"mainImage",SeascapeKernel,"SeascapeParams",SeascapeParams)
+  node=DVIPComputeNode(req,"mainImage",Kernel_,"Params_",Params_)
   if not pcall(function()
-      params=node:GetParamBlock(SeascapeParams)
+      params=node:GetParamBlock(Params_)
       params.R=InR:GetValue(req).Value
       params.G=InG:GetValue(req).Value
       params.B=InB:GetValue(req).Value
@@ -113,7 +113,7 @@ function Process(req)
       params.iTime=req.Time/framerate
       node:SetParamBlock(params)
   end) then
-      params=node:GetParamBlock(SeascapeParams)
+      params=node:GetParamBlock(Params_)
       params.R=InR:GetValue(req).Value
       params.G=InG:GetValue(req).Value
       params.B=InB:GetValue(req).Value
