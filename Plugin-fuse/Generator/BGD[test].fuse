@@ -18,7 +18,7 @@ Params_=[[
 ]]
 
 Kernel_=[[
-__KERNEL__ void mainImage(__CONSTANTREF__ SeascapeParams*params,__TEXTURE2D__ src,__TEXTURE2D_WRITE__ dst){
+__KERNEL__ void mainImage(__CONSTANTREF__ Params_*params,__TEXTURE2D__ src,__TEXTURE2D_WRITE__ dst){
   DEFINE_KERNEL_ITERATORS_XY(x,y);
   float2 iResolution=to_float2(1920,1080);
   float2 fragCoord=to_float2(x,y);
