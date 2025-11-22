@@ -1,0 +1,147 @@
+FuRegisterClass("LCD",CT_Tool,{
+  REGS_Name             ="LCD",
+  REGS_Category         ="Fuses",
+  REGS_OpIconString     ="LCD",
+  REGS_OpDescription    ="",
+  REGS_HelpTopic        ="",
+  REGS_URL              ="URL",
+  REG_OpNoMask          =true,
+  REG_NoBlendCtrls      =true,
+  REG_NoObjMatCtrls     =true,
+  REG_NoMotionBlurCtrls =true,
+  REG_NoBlendCtrls      =false,
+  REG_Fuse_NoEdit       =false,
+  REG_Fuse_NoReload     =false,
+  REG_Version           =1,
+})
+
+Params_=[[
+  int Width;
+  int Height;
+  bool xyl;
+  float x;
+  float y;
+  float T;
+  bool D;
+]]
+
+Kernel_=[[
+float2 floor_(float2 x){
+  return to_float2(_floorf(x.x),_floorf(x.y));
+}
+float2 fract_(float2 x){
+  return x-floor_(x);
+}
+__KERNEL__ void mainImage(__CONSTANTREF__ Params_*params,__TEXTURE2D__ src,__TEXTURE2D_WRITE__ dst){
+  DEFINE_KERNEL_ITERATORS_XY(x,y);
+  float2 iResolution=to_float2(params->Width,params->Height);
+  float2 fragCoord=to_float2(x,y);
+  float2 uv=fragCoord/iResolution;
+  float4 fragColor=to_float4_s(0.0f);
+  float2 f=fract_(uv*to_float2(params->x,params->xyl?params->x/1.7647058f:params->y));
+  float gap=params->T;
+  if(f.x<gap||f.x>1.0f-gap||f.y<gap||f.y>1.0f-gap){
+    fragColor=to_float4(0,0,0,1);
+    _tex2DVec4Write(dst,x,y,fragColor);
+    if(params->D){
+      return;
+    }
+  }
+  float2 inF=(f-gap)/(1.0f-2.0f*gap);
+  float3 rgb=to_float3_s(0);
+  if(inF.x<0.333f){
+    rgb.r=1.0f;
+  }else if(inF.x<0.666f){
+    rgb.g=1.0f;
+  }else{
+    rgb.b=1.0f;
+  }
+  fragColor=to_float4(rgb.r,rgb.g,rgb.b,1.0f);
+  _tex2DVec4Write(dst,x,y,fragColor);
+}
+]]
+
+function Create()
+  InCheckbox=self:AddInput("XY lock","checkbox",{
+    LINKID_DataType     ="Number",
+    INPID_InputControl  ="CheckboxControl",
+    INP_Integer         =true,
+    INP_Default         =0,
+    INP_DoNotifyChanged =true,
+  })
+  InSlider=self:AddInput("X","slider",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="SliderControl",
+    INP_MaxScale       =100,
+    INP_MinScale       =0,
+    INP_Default        =60,
+  })
+  InSlider2=self:AddInput("Y","slider2",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="SliderControl",
+    INP_MaxScale       =100,
+    INP_MinScale       =0,
+    INP_Default        =34,
+  })
+  InSlider3=self:AddInput("Thickness","slider3",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="SliderControl",
+    INP_MaxScale       =1,
+    INP_MinScale       =0,
+    INP_Default        =0.08,
+  })
+  InCheckbox2=self:AddInput("Display","checkbox2",{
+    LINKID_DataType     ="Number",
+    INPID_InputControl  ="CheckboxControl",
+    INP_Integer         =true,
+    INP_Default         =1,
+    --INP_DoNotifyChanged =true,
+  })
+  InImage=self:AddInput("Input","Input",{
+    LINKID_DataType ="Image",
+    LINK_Main       =1,
+  })
+  OutImage=self:AddOutput("Output","Output",{
+    LINKID_DataType ="Image",
+    LINK_Main       =1,
+  })
+end
+
+function NotifyChanged(inp,param,time)
+  if inp==InCheckbox then
+    if param.Value>0.1 then
+      InSlider2:SetAttrs({IC_Visible=false})
+      InSlider:SetAttrs({LINKS_Name="size"})
+    else
+      InSlider2:SetAttrs({IC_Visible=true})
+      InSlider:SetAttrs({LINKS_Name="X"})
+    end
+  end
+end
+
+function Process(req)
+  local img=InImage:GetValue(req)
+  local out=Image({IMG_Like=img})
+  local x=InSlider:GetValue(req).Value
+  local y=InSlider2:GetValue(req).Value
+  local t=InSlider3:GetValue(req).Value
+  node=DVIPComputeNode(req,"mainImage",Kernel_,"Params_",Params_)
+  params=node:GetParamBlock(Params_)
+  params.Width=img.DataWindow:Width()
+  params.Height=img.DataWindow:Height()
+  params.xyl=InCheckbox:GetValue(req).Value
+  params.x=x
+  params.y=y
+  params.T=t
+  params.D=InCheckbox2:GetValue(req).Value
+  node:SetParamBlock(params)
+  node:AddSampler("RowSampler",TEX_FILTER_MODE_LINEAR,TEX_ADDRESS_MODE_BORDER,TEX_NORMALIZED_COORDS_TRUE)
+  node:AddInput("src",img)
+  node:AddOutput("dst",out)
+  local success=node:RunSession(req)
+  if not success then
+      out=nil
+      dump(node:GetErrorLog())
+  end
+  OutImage:Set(req,out)
+end
