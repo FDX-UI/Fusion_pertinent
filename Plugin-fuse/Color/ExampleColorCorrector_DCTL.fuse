@@ -5,7 +5,7 @@ FuRegisterClass("ExampleColorCorrector",CT_Tool,{
   REGS_OpDescription    ="Example1, using the functions of Color Matrix",
   REGS_HelpTopic        ="Example Location of Help",
   REGS_URL              ="URL",
-  REG_OpNoMask          =true,
+  REG_OpNoMask          =false,
   REG_NoBlendCtrls      =true,
   REG_NoObjMatCtrls     =true,
   REG_NoMotionBlurCtrls =true,
