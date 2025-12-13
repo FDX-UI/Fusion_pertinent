@@ -1,0 +1,91 @@
+FuRegisterClass("ColorPicker",CT_Tool,{
+  REGS_Name             ="Color Picker",
+  REGS_Category         ="Miscellaneous",
+  REGS_OpIconString     ="CPR",
+  REGS_OpDescription    ="Color Picker",
+  REGS_HelpTopic        ="Color Picker",
+  REGS_URL              ="URL",
+  REG_OpNoMask          =false,
+  REG_NoBlendCtrls      =true,
+  REG_NoObjMatCtrls     =true,
+  REG_NoMotionBlurCtrls =true,
+  REG_NoBlendCtrls      =false,
+  REG_Fuse_NoEdit       =false,
+  REG_Fuse_NoReload     =false,
+  REG_Version           =1,
+})
+
+function Create()
+  InCenter=self:AddInput("Center","center",{
+	  LINKID_DataType      ="Point",
+	  INPID_InputControl   ="OffsetControl",
+	  INPID_PreviewControl ="CrosshairControl",
+	})
+  InR=self:AddInput("Red","Red",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="ColorControl",
+    INP_MaxScale       =1,
+    INP_MinScale       =0,
+    INP_Default        =0,
+    ICS_Name           ="Color",
+    IC_ControlGroup    =1,
+    IC_ControlID       =0
+  })
+    InG=self:AddInput("Green","Green",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="ColorControl",
+    INP_MaxScale       =1,
+    INP_MinScale       =0,
+    INP_Default        =0,
+    IC_ControlGroup    =1,
+    IC_ControlID       =1
+  })
+  InB=self:AddInput("Blue","Blue",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="ColorControl",
+    INP_MaxScale       =1,
+    INP_MinScale       =0,
+    INP_Default        =0,
+    IC_ControlGroup    =1,
+    IC_ControlID       =2
+  })
+  InA=self:AddInput("Alpha","Alpha",{
+    LINKID_DataType    ="Number",
+    INPID_InputControl ="ColorControl",
+    INP_MaxScale       =1,
+    INP_MinScale       =0,
+    INP_Default        =0,
+    IC_ControlGroup    =1,
+    IC_ControlID       =3
+  })
+  InImage=self:AddInput("Input","Input",{
+    LINKID_DataType ="Image",
+    LINK_Main       =1,
+  })
+  OutImage=self:AddOutput("Output","Output",{
+    LINKID_DataType ="Image",
+    LINK_Main       =1,
+  })
+end
+
+function Process(req)
+  local img=InImage:GetValue(req)
+  local out=img
+  local center=InCenter:GetValue(req)
+  local p=Pixel()
+  local px=math.floor(center.X*img.Width+0.5)
+  local py=math.floor(center.Y*img.Height+0.5)
+  if px>=0 and px<img.Width and py>=0 and py<img.Height then
+    img:GetPixel(px,py,p)
+    InR:SetSource(Number(p.R),0)
+    InG:SetSource(Number(p.G),0)
+    InB:SetSource(Number(p.B),0)
+    InA:SetSource(Number(p.A),0)
+  else
+    InR:SetSource(Number(r),0)
+    InG:SetSource(Number(g),0)
+    InB:SetSource(Number(b),0)
+    InA:SetSource(Number(a),0)
+  end
+  OutImage:Set(req,out)
+end
