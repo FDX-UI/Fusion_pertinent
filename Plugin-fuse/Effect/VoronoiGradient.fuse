@@ -1,0 +1,110 @@
+FuRegisterClass("VoronoiGradient",CT_Tool,{
+    REGS_Name             ="Voronoi Gradient",
+    REGS_Category         ="Effect",
+    REGS_OpIconString     ="VG",
+    REGS_OpDescription    ="",
+    REGS_HelpTopic        ="",
+    REGS_URL              ="",
+    REG_OpNoMask          =false,
+    REG_NoBlendCtrls      =true,
+    REG_NoObjMatCtrls     =true,
+    REG_NoMotionBlurCtrls =true,
+    REG_NoBlendCtrls      =false,
+    REG_Fuse_NoEdit       =false,
+    REG_Fuse_NoReload     =false,
+})
+
+Params_=[[
+    int Width;
+    int Height;
+    int SiteCount;
+]]
+
+Kernel_=[[
+__KERNEL__ void mainImage(__CONSTANTREF__ Params_ *params,__TEXTURE2D__ src,__TEXTURE2D_WRITE__ dst) {
+    DEFINE_KERNEL_ITERATORS_XY(x,y);
+
+    float2 res=to_float2(params->Width,params->Height);
+    int total=params->SiteCount;
+    if(total<1){
+        total=1;
+    }
+
+    float2 fragCoord=to_float2(x,y);
+    int nearest=0;
+    float minDist=1e20;
+
+    for(int i=0;i<total&&i<300;i++){
+        float seed=(float)i/(float)total;
+
+        float h1=_sinf(seed*127.1F);
+        float h2=_sinf(seed*311.7F);
+        float r1=h1-_floorf(h1);
+        float r2=h2-_floorf(h2);
+
+        float2 pos=to_float2(r1*(res.x-2.0F)+1.0F,r2*(res.y-2.0F)+1.0F);
+
+        float2 d=fragCoord-pos;
+        float dist=d.x*d.x+d.y*d.y;
+        if(dist<minDist){
+            minDist=dist;
+            nearest=i;
+        }
+    }
+
+    float seedN=(float)nearest/(float)total;
+    float u=_sinf(seedN*127.1F)-_floorf(_sinf(seedN*127.1F));
+    float v=_sinf(seedN*311.7F)-_floorf(_sinf(seedN*311.7F));
+
+    float4 fragColor=_tex2DVecN(src,u,v,15);
+    // fragColor.w=1.0F;
+
+    _tex2DVec4Write(dst,x,y,fragColor);
+}
+]]
+
+function Create()
+    InSiteCount=self:AddInput("SiteCount","SiteCount",{
+        LINKID_DataType    ="Number",
+        INPID_InputControl ="SliderControl",
+        INP_MaxScale       =300,
+        INP_MinScale       =10,
+        INP_Default        =80,
+        INP_Integer        =true,
+    })
+    InImage=self:AddInput("Input","Input",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1,
+    })
+    OutImage=self:AddOutput("Output","Output",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1,
+    })
+end
+
+function Process(req)
+    local img=InImage:GetValue(req)
+    if img==nil then
+        OutImage:Set(req,nil)
+        return
+    end
+    -- local out=Image({IMG_Like=img})
+    local out=img:Copy()
+    local siteCount=InSiteCount:GetValue(req).Value
+    -- local s=os.clock()
+    local node=DVIPComputeNode(req,"mainImage",Kernel_,"Params_",Params_)
+    local params=node:GetParamBlock(Params_)
+    params.Width=img.DataWindow:Width()
+    params.Height=img.DataWindow:Height()
+    params.SiteCount=math.floor(siteCount)
+    node:SetParamBlock(params)
+    node:AddSampler("RowSampler",TEX_FILTER_MODE_LINEAR,TEX_ADDRESS_MODE_CLAMP,TEX_NORMALIZED_COORDS_TRUE)
+    node:AddInput("src",img)
+    node:AddOutput("dst",out)
+    local success=node:RunSession(req)
+    if not success then
+        out=img
+    end
+    -- print(os.clock()-s)
+    OutImage:Set(req,out)
+end
