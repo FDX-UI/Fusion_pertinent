@@ -1,0 +1,76 @@
+ffi.cdef[[
+    typedef void*HMODULE;
+    typedef void*FARPROC;
+    HMODULE LoadLibraryA(const char*lpLibFileName);
+    FARPROC GetProcAddress(HMODULE hModule,const char*lpProcName);
+]]
+
+local kernel32=ffi.load("kernel32")
+local dll=kernel32.LoadLibraryA(debug.getinfo(1).source:match("^@(.+)Fuses").."fusionsystem.dll")
+
+local pGetCount=ffi.cast("int(*)(void*)",kernel32.GetProcAddress(dll,"?GetCount@PolyLine@Fusion@@QEAAH_K@Z"))
+local pGetPoint=ffi.cast("void*(*)(void*,int)",kernel32.GetProcAddress(dll,"?GetPoint@PolyLine@Fusion@@QEAAPEAVPolyPoint@2@H@Z"))
+local pIsClosed=ffi.cast("bool(*)(void*)",kernel32.GetProcAddress(dll,"?IsClosed@PolyLine@Fusion@@QEAA_NXZ"))
+
+FuRegisterClass("PolyLine",CT_Tool,{
+    REGS_Name          ="PolyLine",
+    REGS_Category      ="Fuses",
+    REGS_OpIconString  ="PL",
+})
+
+function Create()
+    InPolyLine=self:AddInput("PolyLine","PolyLine",{
+        LINKID_DataType      ="Polyline",
+        INPID_InputControl   ="LabelControl",
+        INPID_PreviewControl ="PolylineControl",
+        PLC_CanPublishPoints =true
+    })
+
+    InImage=self:AddInput("Input","Input",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1
+    })
+
+    OutImage=self:AddOutput("Output","Output",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1
+    })
+end
+
+function Process(req)
+    local img=InImage:GetValue(req)
+    local poly=InPolyLine:GetValue(req)
+    if not poly then
+        OutImage:Set(req,img)
+        return
+    end
+
+    local count=poly:GetCount()
+    if count==0 then
+        OutImage:Set(req,img)
+        return
+    end
+
+    local center_x=0.5
+    local center_y=0.5
+    for i=0,count-1 do
+        local pt=pGetPoint(poly,i)
+        if pt and pt~=nil then
+            local p=ffi.cast("char*",pt)
+            local X=ffi.cast("double*",p+8)[0]
+            local Y=ffi.cast("double*",p+16)[0]
+            local LeftCX=ffi.cast("double*",p+64)[0]
+            local LeftCY=ffi.cast("double*",p+72)[0]
+            local RightCX=ffi.cast("double*",p+88)[0]
+            local RightCY=ffi.cast("double*",p+96)[0]
+            local ax=X+center_x
+            local ay=Y+center_y
+            local lx=X+LeftCX+center_x
+            local ly=Y+LeftCY+center_y
+            local rx=X+RightCX+center_x
+            local ry=Y+RightCY+center_y
+        end
+    end
+
+    OutImage:Set(req,img)
+end
