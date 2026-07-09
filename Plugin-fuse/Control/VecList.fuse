@@ -1,0 +1,188 @@
+ffi.cdef[[
+    typedef void*HMODULE;
+    typedef void*FARPROC;
+    HMODULE LoadLibraryA(const char*lpLibFileName);
+    FARPROC GetProcAddress(HMODULE hModule,const char*lpProcName);
+]]
+
+local kernel32=ffi.load("kernel32")
+local dll=kernel32.LoadLibraryA(debug.getinfo(1).source:match("^@(.+)Fuses").."fusionsystem.dll")
+
+local pPostToAll=ffi.cast("void(*)(void*,int,int,void*)",kernel32.GetProcAddress(dll,"?PostToAll@FusionDocQt@Fusion@@UEAAXI_K0@Z"))
+local PRemoveInput=ffi.cast("bool(*)(struct ScriptOperator*,struct Input*)",kernel32.GetProcAddress(dll,"?RemoveInput@Operator@Fusion@@UEAA_NPEAVInput@2@@Z"))
+
+FuRegisterClass("VecList",CT_Tool,{
+    REGS_Name          ="VecList",
+    REGS_Category      ="Fuses",
+    REGS_OpIconString  ="VL",
+})
+
+function Create()
+    self:AddControlPage("Controls")
+    InVecList=self:AddInput("VecList","VecList",{
+        LINKID_DataType      ="Number",
+        INPID_InputControl   ="ListControl",
+        LC_Rows              =5
+    })
+
+    InRenameText=self:AddInput("RenameText","RenameText",{
+        LINKID_DataType     ="Text",
+        INPID_InputControl  ="TextEditControl",
+        INPS_DefaultText    ="",
+        TEC_Lines           =1,
+        INP_DoNotifyChanged =true
+    })
+
+    InCheckPlainText=self:AddInput("CheckPlainText","CheckPlainText",{
+        LINKID_DataType    ="Number",
+        INPID_InputControl ="CheckboxControl",
+    })
+
+    InAdd=self:AddInput("Add","Add",{
+        LINKID_DataType     ="Number",
+        INPID_InputControl  ="ButtonControl",
+        INP_DoNotifyChanged =true,
+    })
+
+    InDelete=self:AddInput("Delete","Delete",{
+        LINKID_DataType     ="Number",
+        INPID_InputControl  ="ButtonControl",
+        INP_DoNotifyChanged =true,
+    })
+
+    InClear=self:AddInput("Clear","Clear",{
+        LINKID_DataType     ="Number",
+        INPID_InputControl  ="ButtonControl",
+        INP_DoNotifyChanged =true,
+    })
+
+    InRename=self:AddInput("Rename","Rename",{
+        LINKID_DataType     ="Number",
+        INPID_InputControl  ="ButtonControl",
+        INP_DoNotifyChanged =true,
+    })
+
+    InImage=self:AddInput("Input","Input",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1,
+    })
+
+    OutImage=self:AddOutput("Output","Output",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1,
+    })
+end
+
+local VecList={}
+local Gi=0
+local Li=0
+
+function findMissing(prefix,data)
+    local pattern="^"..prefix.."(%d+)$"
+    local N=0
+    local seen={}
+
+    for i=1,#data do
+        local num=string.match(data[i],pattern)
+        if num then
+            num=tonumber(num)
+            seen[data[i]]=true
+            if num>N then
+                N=num
+            end
+        end
+    end
+
+    if N==0 then
+        return nil
+    end
+
+    for i=1,N do
+        if not seen[prefix..i] then
+            return i
+        end
+    end
+
+    return nil
+end
+
+function Add(a)
+    if a=="" then
+        Li=Li+1
+        Gi=Gi+1
+        if findMissing("t",VecList)~=nil then
+            VecList[Gi]="t"..findMissing("t",VecList)
+        else
+            VecList[Gi]="t"..Li -- BUG
+        end
+        InVecList:SetAttrs({LCS_AddString=VecList[Gi]})
+    else
+        Gi=Gi+1
+        VecList[Gi]=a
+        InVecList:SetAttrs({LCS_AddString=VecList[Gi]})
+    end
+    dump(VecList,"Gi: "..Gi,"Li: "..Li)
+end
+
+function Delete(a)
+    table.remove(VecList,#VecList-(a+1)+1)
+    Gi=Gi-1
+    Li=Li-1
+    dump(VecList,"Gi: "..Gi,"Li: "..Li)
+    PRemoveInput(self,InVecList)
+    Create()
+    for i=0,#VecList do
+        InVecList:SetAttrs({LCS_AddString=VecList[i]})
+    end
+end
+
+function Clear()
+    Gi=0
+    Li=0
+    VecList={}
+    dump(VecList,"Gi: "..Gi,"Li: "..Li)
+    PRemoveInput(self,InVecList)
+    Create()
+end
+
+function Rename(a,b)
+    VecList[#VecList-(a+1)+1]=b
+    dump(VecList,"Gi: "..Gi,"Li: "..Li)
+    PRemoveInput(self,InVecList)
+    Create()
+    for i=0,#VecList do
+        InVecList:SetAttrs({LCS_AddString=VecList[i]})
+    end
+end
+
+function NotifyChanged(inp,param,time)
+    if inp==InAdd and param.Value>=0.5 then
+        Add(InRenameText:GetSource(0).Value)
+    end
+
+    if inp==InDelete and param.Value>=0.5 then
+        Delete(InVecList:GetSource(0).Value)
+    end
+
+    if inp==InClear and param.Value>=0.5 then
+        Clear()
+    end
+
+    if inp==InRename and param.Value>=0.5 then
+        Rename(InVecList:GetSource(0).Value,InRenameText:GetSource(0).Value)
+    end
+end
+
+function Process(req)
+    local img=InImage:GetValue(req)
+    local renametext=InRenameText:GetValue(req)
+    local plaintext=Text("1")
+
+    pPostToAll(self.Comp,5155,1,self)
+
+    if InCheckPlainText:GetValue(req).Value==1 then
+        OutImage:Set(req,plaintext)
+    else
+        OutImage:Set(req,img)
+    end
+end
