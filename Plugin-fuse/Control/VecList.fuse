@@ -110,10 +110,11 @@ function Add(a)
     if a=="" then
         Li=Li+1
         Gi=Gi+1
-        if findMissing("t",VecList)~=nil then
-            VecList[Gi]="t"..findMissing("t",VecList)
+        local missing=findMissing("t",VecList)
+        if missing then
+            VecList[Gi]="t"..missing
         else
-            VecList[Gi]="t"..Li -- BUG
+            VecList[Gi]="t"..Li
         end
         InVecList:SetAttrs({LCS_AddString=VecList[Gi]})
     else
@@ -125,6 +126,9 @@ function Add(a)
 end
 
 function Delete(a)
+    if #VecList==0 or a<0 or a>=#VecList then
+        return
+    end
     table.remove(VecList,#VecList-(a+1)+1)
     Gi=Gi-1
     Li=Li-1
@@ -146,6 +150,9 @@ function Clear()
 end
 
 function Rename(a,b)
+    if #VecList==0 or a<0 or a>=#VecList then
+        return
+    end
     VecList[#VecList-(a+1)+1]=b
     dump(VecList,"Gi: "..Gi,"Li: "..Li)
     PRemoveInput(self,InVecList)
