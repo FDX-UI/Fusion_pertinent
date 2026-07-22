@@ -1,0 +1,58 @@
+-- BUG
+
+FuRegisterClass("P",CT_Tool,{
+    REGS_Name         ="P",
+    REGS_Category     ="Fuses",
+    REGS_OpIconString ="P"
+})
+
+function Create()
+    InImage=self:AddInput("Input","Input",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1
+    })
+
+    OutImage=self:AddOutput("Output","Output",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1
+    })
+end
+
+function Process(req)
+    local img=InImage:GetValue(req)
+    OutImage:Set(req,img)
+end
+
+FuRegisterClass("P2",CT_SourceTool,{
+    REGS_Name              ="P2",
+    REGS_Category          ="Fuses",
+    REGS_OpIconString      ="P2",
+    REG_Source_GlobalCtrls =true,
+    REG_Source_SizeCtrls   =true,
+    REG_Source_AspectCtrls =true,
+    REG_Source_DepthCtrls  =true
+})
+
+function Create()
+    OutImage=self:AddOutput("Output","Output",{
+        LINKID_DataType ="Image",
+        LINK_Main       =1
+    })
+end
+
+function Process(req)
+    local img=Image({
+        IMG_Document          =self.Comp,
+        {IMG_Channel          ="Red"},
+        {IMG_Channel          ="Green"},
+        {IMG_Channel          ="Blue"},
+        {IMG_Channel          ="Alpha"},
+        IMG_Width             =1920,
+        IMG_Height            =1080,
+        IMG_XScale            =1,
+        IMG_YScale            =1,
+        IMG_Quality           =not req:IsQuick(),
+        IMG_MotionBlurQuality =not req:IsNoMotionBlur(),
+    })
+    OutImage:Set(req,img)
+end
