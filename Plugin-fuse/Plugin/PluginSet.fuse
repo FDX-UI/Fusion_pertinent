@@ -52,7 +52,7 @@ function Process(req)
         IMG_XScale            =self:FindInput("PixelAspect"):GetValue(req).X,
         IMG_YScale            =self:FindInput("PixelAspect"):GetValue(req).Y,
         IMG_Quality           =not req:IsQuick(),
-        IMG_MotionBlurQuality =not req:IsNoMotionBlur(),
+        IMG_MotionBlurQuality =not req:IsNoMotionBlur()
     })
     OutImage:Set(req,img)
 end
